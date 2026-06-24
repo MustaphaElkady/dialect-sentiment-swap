@@ -46,17 +46,39 @@ class TrainingDataService:
             ))      
         return examples
 
-    def _build_input_text(self, source_text: str, target_sentiment: str, source_sentiment: str) -> str:
+    def _build_input_text(
+        self,
+        source_text: str,
+        target_sentiment: str,
+        source_sentiment: str,
+    ) -> str:
+        sentiment_labels = {
+            "positive": "إيجابي",
+            "negative": "سلبي",
+            "neutral": "محايد",
+        }
+
+        source_sentiment_label = sentiment_labels.get(
+            source_sentiment,
+            source_sentiment,
+        )
+
+        target_sentiment_label = sentiment_labels.get(
+            target_sentiment,
+            target_sentiment,
+        )
+
         return "\n".join(
             [
-                "Task: Arabic sentiment rewriting.",
-                "Read the sentence, infer its dialect internally, and identify the sentiment-bearing words internally.",
-                f"Rewrite the sentence from {source_sentiment} to {target_sentiment}.",
-                "Change only the words or phrases needed to match the target sentiment.",
-                "Preserve the general meaning, topic, style, and dialect as much as possible.",
-                "Output only the rewritten sentence.",
+                "المهمة: إعادة كتابة جملة عربية مع تغيير الشعور.",
+                f"الشعور الحالي للجملة: {source_sentiment_label}.",
+                f"الشعور المطلوب: {target_sentiment_label}.",
+                "اقرأ الجملة واستنتج لهجتها داخليًا.",
+                "غيّر فقط الكلمات أو العبارات التي تحمل الشعور.",
+                "حافظ على المعنى العام، والوصف، والأسلوب، واللهجة قدر الإمكان.",
+                "اكتب الجملة الناتجة فقط بدون شرح.",
                 "",
-                f"Sentence: {source_text}",
-                "Rewritten sentence:",
+                f"الجملة: {source_text}",
+                "الجملة الناتجة:",
             ]
         )
