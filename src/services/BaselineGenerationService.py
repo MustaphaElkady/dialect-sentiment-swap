@@ -16,7 +16,8 @@ class BaselineGenerationService:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
         self.tokenizer = AutoTokenizer.from_pretrained(
-            self.settings.TRAIN_MODEL_NAME
+            self.settings.TRAIN_MODEL_NAME,
+            use_fast=False,
         )
         self.model = AutoModelForSeq2SeqLM.from_pretrained(
             self.settings.TRAIN_MODEL_NAME
