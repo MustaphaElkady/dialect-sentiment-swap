@@ -5,3 +5,5 @@ pandas
 openpyxl
 torch
 transformers
+sentencepiece
+accelerate
