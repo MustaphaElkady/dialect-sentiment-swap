@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     PROCESSED_TRAIN_FILE: str
     PROCESSED_EVAL_FILE: str
 
+    DATASET_VALIDATION_REPORT_FILE: str
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
