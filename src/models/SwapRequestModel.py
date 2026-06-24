@@ -1,5 +1,4 @@
 from typing import Optional
-
 from .BaseDataModel import BaseDataModel
 from .enums.SentimentEnum import SentimentEnum
 

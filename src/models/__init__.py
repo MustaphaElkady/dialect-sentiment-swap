@@ -4,6 +4,7 @@ from src.models.SwapDatasetRecordModel import SwapDatasetRecordModel
 from src.models.SwapRequestModel import SwapRequestModel
 from src.models.SwapResultModel import SwapResultModel
 from src.models.TrainingExampleModel import TrainingExampleModel
+from src.models.GenerationPredictionModel import GenerationPredictionModel
 
 __all__ = [
     "BaseDataModel",
@@ -12,4 +13,5 @@ __all__ = [
     "SwapRequestModel",
     "SwapResultModel",
     "TrainingExampleModel",
+    "GenerationPredictionModel",
 ]
