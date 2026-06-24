@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from src.core.config import get_settings
+from src.helpers import load_jsonl
 
 
 class DatasetValidationService:
@@ -48,7 +49,7 @@ class DatasetValidationService:
         if not file_path.exists():
             raise FileNotFoundError(f"{split_name} file not found: {file_path}")
 
-        records = self._load_jsonl(file_path)
+        records = self.load_jsonl(file_path)
 
         lines: list[str] = []
 
@@ -67,25 +68,6 @@ class DatasetValidationService:
         lines.extend(self._get_random_examples(records))
 
         return lines
-
-    def _load_jsonl(self, file_path: Path) -> list[dict[str, Any]]:
-        records = []
-
-        with open(file_path, "r", encoding="utf-8") as file:
-            for line_number, line in enumerate(file, start=1):
-                line = line.strip()
-
-                if not line:
-                    continue
-
-                try:
-                    records.append(json.loads(line))
-                except json.JSONDecodeError as error:
-                    raise ValueError(
-                        f"Invalid JSON in {file_path} at line {line_number}: {error}"
-                    ) from error
-
-        return records
 
     def _get_missing_fields_report(
         self,
@@ -211,14 +193,3 @@ class DatasetValidationService:
         with open(report_path, "w", encoding="utf-8") as file:
             file.write(report_text)
             file.write("\n")
-
-    def _processed_path(self, file_name: str) -> Path:
-        return self._project_path(self.settings.PROCESSED_DATA_DIR) / file_name
-
-    def _project_path(self, path: str) -> Path:
-        path_obj = Path(path)
-
-        if path_obj.is_absolute():
-            return path_obj
-
-        return Path(self.settings.PROJECT_ROOT) / path_obj

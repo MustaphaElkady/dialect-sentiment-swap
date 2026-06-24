@@ -1,5 +1,4 @@
 from functools import lru_cache
-
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -28,6 +27,17 @@ class Settings(BaseSettings):
     PROCESSED_EVAL_FILE: str
 
     DATASET_VALIDATION_REPORT_FILE: str
+    TRAIN_MODEL_NAME: str
+
+    MAX_SOURCE_LENGTH: int
+    MAX_TARGET_LENGTH: int
+
+    BASELINE_OUTPUT_DIR: str
+    BASELINE_PREDICTIONS_FILE: str
+    BASELINE_MAX_EXAMPLES: int
+
+    GENERATION_MAX_NEW_TOKENS: int
+    GENERATION_NUM_BEAMS: int
 
 
 @lru_cache(maxsize=1)

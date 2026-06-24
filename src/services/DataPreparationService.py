@@ -6,6 +6,7 @@ import pandas as pd
 from src.core.config import get_settings
 from src.models import SwapDatasetRecordModel
 from src.models.enums import SentimentEnum
+from src.helpers import processed_data_path, raw_data_path
 
 
 class DataPreparationService:
@@ -24,12 +25,13 @@ class DataPreparationService:
         self.settings = get_settings()
 
     def prepare(self) -> None:
-        train_input_path = self._raw_path(self.settings.RAW_TRAIN_FILE)
-        eval_input_path = self._raw_path(self.settings.RAW_EVAL_FILE)
 
-        train_output_path = self._processed_path(self.settings.PROCESSED_TRAIN_FILE)
-        eval_output_path = self._processed_path(self.settings.PROCESSED_EVAL_FILE)
+        train_input_path = raw_data_path(self.settings.RAW_TRAIN_FILE)
+        eval_input_path = raw_data_path(self.settings.RAW_EVAL_FILE)
 
+        train_output_path = processed_data_path(self.settings.PROCESSED_TRAIN_FILE)
+        eval_output_path = processed_data_path(self.settings.PROCESSED_EVAL_FILE)
+        
         train_records = self._load_excel_records(train_input_path)
         eval_records = self._load_excel_records(eval_input_path)
 
@@ -123,16 +125,3 @@ class DataPreparationService:
                     + "\n"
                 )
 
-    def _raw_path(self, file_name: str) -> Path:
-        return self._project_path(self.settings.RAW_DATA_DIR) / file_name
-
-    def _processed_path(self, file_name: str) -> Path:
-        return self._project_path(self.settings.PROCESSED_DATA_DIR) / file_name
-
-    def _project_path(self, path: str) -> Path:
-        path_obj = Path(path)
-
-        if path_obj.is_absolute():
-            return path_obj
-
-        return Path(self.settings.PROJECT_ROOT) / path_obj
