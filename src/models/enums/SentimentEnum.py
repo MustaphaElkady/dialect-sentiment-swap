@@ -1,6 +1,6 @@
 from enum import Enum
 
 class SentimentEnum(str,Enum):
-    NIGATIVE = "negative"
+    NEGATIVE = "negative"
     NEUTRAL = "neutral"
     POSITIVE = "positive"
