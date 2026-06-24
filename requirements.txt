@@ -1,3 +1,5 @@
 streamlit
 pydantic
 pydantic-settings
+pandas
+openpyxl

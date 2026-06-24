@@ -16,6 +16,17 @@ class Settings(BaseSettings):
     ENVIRONMENT: str
     PROJECT_ROOT: str
 
+    
+    ######### DATA ##############
+    RAW_DATA_DIR: str
+    PROCESSED_DATA_DIR: str
+
+    RAW_TRAIN_FILE: str
+    RAW_EVAL_FILE: str
+
+    PROCESSED_TRAIN_FILE: str
+    PROCESSED_EVAL_FILE: str
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
