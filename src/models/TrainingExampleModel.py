@@ -7,3 +7,4 @@ class TrainingExampleModel(BaseDataModel):
     target_text: str
     source_text: str
     target_sentiment: str
+    source_sentiment: str

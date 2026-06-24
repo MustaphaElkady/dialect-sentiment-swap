@@ -26,3 +26,12 @@ def load_jsonl(file_path: str | Path) -> list[dict[str, Any]]:
                 ) from error
 
     return records
+
+
+def save_jsonl(records: list[dict[str, Any]], file_path: str | Path) -> None:
+    path = Path(file_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(path, "w", encoding="utf-8") as file:
+        for record in records:
+            file.write(json.dumps(record, ensure_ascii=False) + "\n")

@@ -38,7 +38,9 @@ class Settings(BaseSettings):
 
     GENERATION_MAX_NEW_TOKENS: int
     GENERATION_NUM_BEAMS: int
-
+    TRAINING_PREVIEW_OUTPUT_DIR: str
+    TRAINING_PREVIEW_FILE: str
+    TRAINING_PREVIEW_MAX_EXAMPLES: int
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

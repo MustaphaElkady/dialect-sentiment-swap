@@ -42,6 +42,7 @@ class TrainingDataService:
                 target_text=target_text,
                 source_text=source_text,
                 target_sentiment=target_sentiment,
+                source_sentiment=source_sentiment,
             ))      
         return examples
 
