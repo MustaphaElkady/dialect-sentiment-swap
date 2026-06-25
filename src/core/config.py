@@ -41,6 +41,14 @@ class Settings(BaseSettings):
     TRAINING_PREVIEW_OUTPUT_DIR: str
     TRAINING_PREVIEW_FILE: str
     TRAINING_PREVIEW_MAX_EXAMPLES: int
+    CAUSAL_MODEL_NAME: str
+    CAUSAL_OUTPUT_DIR: str
+    CAUSAL_PREDICTIONS_FILE: str
+    CAUSAL_MAX_EXAMPLES: int
+
+    CAUSAL_MAX_NEW_TOKENS: int
+    CAUSAL_TEMPERATURE: float
+    CAUSAL_TOP_P: float
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
