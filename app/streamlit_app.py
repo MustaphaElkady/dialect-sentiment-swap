@@ -1,60 +1,40 @@
+import json
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
 import streamlit as st
 
-from src.controllers.SwapController import SwapController
-from src.models import SwapRequestModel
-from src.models.enums import SentimentEnum
+from src.helpers import load_jsonl, project_path
 
 
-SENTIMENT_LABELS = {
-    SentimentEnum.POSITIVE.value: "😊 Positive",
-    SentimentEnum.NEUTRAL.value: "😐 Neutral",
-    SentimentEnum.NEGATIVE.value: "😞 Negative",
-}
+DEFAULT_RESULTS_DIR = "experiments/baselines"
 
-EXAMPLES = {
-    "Negative → Positive": {
-        "text": "الخدمة كانت سيئة جدًا",
-        "target": SentimentEnum.POSITIVE.value,
-        "dialect": "Egyptian",
-    },
-    "Positive → Negative": {
-        "text": "التجربة كانت ممتازة",
-        "target": SentimentEnum.NEGATIVE.value,
-        "dialect": "Egyptian",
-    },
-    "Emotional → Neutral": {
-        "text": "الأكل كان رائع جدًا",
-        "target": SentimentEnum.NEUTRAL.value,
-        "dialect": "Egyptian",
-    },
-}
+REQUIRED_COLUMNS = [
+    "sample_id",
+    "model_name",
+    "source_text",
+    "reference_text",
+    "prediction_text",
+    "target_sentiment",
+]
 
 
 def inject_custom_css() -> None:
-    """Inject custom CSS to improve layout, spacing, and Arabic text rendering."""
     st.markdown(
         """
         <style>
-        .main {
-            direction: rtl;
-        }
-
         .block-container {
-            max-width: 950px;
+            max-width: 1300px;
             padding-top: 2rem;
             padding-bottom: 3rem;
         }
 
-        textarea, input {
-            direction: rtl !important;
-            text-align: right !important;
-        }
-
         .hero-card {
-            background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+            background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
             border: 1px solid #374151;
             border-radius: 18px;
-            padding: 28px;
+            padding: 26px;
             margin-bottom: 24px;
         }
 
@@ -66,63 +46,45 @@ def inject_custom_css() -> None:
 
         .hero-subtitle {
             color: #d1d5db;
-            font-size: 16px;
-            line-height: 1.8;
+            font-size: 15px;
+            line-height: 1.7;
         }
 
         .info-box {
             background: #0f172a;
             border: 1px solid #334155;
             border-radius: 14px;
-            padding: 16px;
-            margin-bottom: 18px;
+            padding: 14px 16px;
             color: #cbd5e1;
+            margin-bottom: 22px;
+            line-height: 1.7;
         }
 
-        .result-card {
+        .comparison-card {
             border: 1px solid #374151;
             border-radius: 16px;
-            padding: 18px;
-            min-height: 150px;
+            padding: 16px;
+            min-height: 170px;
             background: #111827;
+            line-height: 1.8;
         }
 
         .card-title {
             color: #9ca3af;
             font-size: 14px;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
+            font-weight: 700;
         }
 
-        .sentence-text {
-            font-size: 18px;
-            line-height: 1.9;
+        .card-text {
             color: #f9fafb;
+            font-size: 15px;
+            line-height: 1.8;
         }
 
-        .success-badge {
-            display: inline-block;
-            background: #064e3b;
-            color: #d1fae5;
-            padding: 8px 12px;
-            border-radius: 999px;
-            font-weight: 700;
-            margin-bottom: 16px;
-        }
-
-        .warning-badge {
-            display: inline-block;
-            background: #7c2d12;
-            color: #ffedd5;
-            padding: 8px 12px;
-            border-radius: 999px;
-            font-weight: 700;
-            margin-bottom: 16px;
-        }
-
-        .small-note {
-            color: #9ca3af;
-            font-size: 13px;
-            line-height: 1.7;
+        textarea, input {
+            direction: rtl !important;
+            text-align: right !important;
         }
         </style>
         """,
@@ -130,36 +92,14 @@ def inject_custom_css() -> None:
     )
 
 
-def initialize_state() -> None:
-    """Initialize Streamlit session state with default demo values."""
-    if "source_text" not in st.session_state:
-        st.session_state.source_text = "الخدمة كانت سيئة جدًا"
-
-    if "target_sentiment" not in st.session_state:
-        st.session_state.target_sentiment = SentimentEnum.POSITIVE.value
-
-    if "dialect" not in st.session_state:
-        st.session_state.dialect = "Egyptian"
-
-
-def apply_example(example_name: str) -> None:
-    """Load a predefined example into the input form."""
-    example = EXAMPLES[example_name]
-    st.session_state.source_text = example["text"]
-    st.session_state.target_sentiment = example["target"]
-    st.session_state.dialect = example["dialect"]
-
-
 def render_header() -> None:
-    """Render the main page header."""
     st.markdown(
         """
         <div class="hero-card">
-            <div class="hero-title">🔁 Dialect Sentiment Swap</div>
+            <div class="hero-title">📊 Model Results Viewer</div>
             <div class="hero-subtitle">
-                Enter an Arabic dialect sentence, choose a target sentiment,
-                and generate a rewritten version that attempts to preserve the meaning
-                while changing the sentiment.
+                Select one model result file and review its original text, reference text,
+                and generated prediction in a clean comparison table.
             </div>
         </div>
         """,
@@ -167,173 +107,226 @@ def render_header() -> None:
     )
 
 
-def render_sidebar() -> None:
-    """Render sidebar controls and example shortcuts."""
-    with st.sidebar:
-        st.header("⚙️ Controls")
+def find_prediction_files() -> list[Path]:
+    results_dir = project_path(DEFAULT_RESULTS_DIR)
 
-        st.markdown(
-            """
-            Current version: **Rule-Based Prototype**
-            
-            The goal of this stage is to verify the project pipeline:
-            
-            `UI → Controller → Service → Result`
-            """
+    if not results_dir.exists():
+        return []
+
+    return sorted(results_dir.glob("*.jsonl"))
+
+
+def load_records_from_path(file_path: Path) -> list[dict[str, Any]]:
+    records = load_jsonl(file_path)
+
+    for record in records:
+        record["source_file"] = file_path.name
+
+    return records
+
+
+def build_dataframe(records: list[dict[str, Any]]) -> pd.DataFrame:
+    if not records:
+        return pd.DataFrame(columns=REQUIRED_COLUMNS)
+
+    df = pd.DataFrame(records)
+
+    for column in REQUIRED_COLUMNS:
+        if column not in df.columns:
+            df[column] = ""
+
+    if "source_file" not in df.columns:
+        df["source_file"] = ""
+
+    display_columns = [
+        "model_name",
+        "sample_id",
+        "target_sentiment",
+        "source_text",
+        "reference_text",
+        "prediction_text",
+        "source_file",
+    ]
+
+    return df[display_columns]
+
+
+def render_file_selector(prediction_files: list[Path]) -> Path:
+    st.sidebar.header("Model selection")
+
+    selected_file = st.sidebar.selectbox(
+        "Choose model predictions",
+        options=prediction_files,
+        format_func=lambda path: path.name,
+    )
+
+    return selected_file
+
+
+def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
+    st.sidebar.header("Filters")
+
+    sentiments = sorted(df["target_sentiment"].dropna().unique().tolist())
+    selected_sentiments = st.sidebar.multiselect(
+        "Target sentiment",
+        options=sentiments,
+        default=sentiments,
+    )
+
+    search_query = st.sidebar.text_input(
+        "Search",
+        placeholder="Search original, reference, or prediction...",
+    )
+
+    filtered_df = df.copy()
+
+    if selected_sentiments:
+        filtered_df = filtered_df[
+            filtered_df["target_sentiment"].isin(selected_sentiments)
+        ]
+
+    if search_query.strip():
+        query = search_query.strip()
+
+        mask = (
+            filtered_df["source_text"].astype(str).str.contains(query, case=False, na=False)
+            | filtered_df["reference_text"].astype(str).str.contains(query, case=False, na=False)
+            | filtered_df["prediction_text"].astype(str).str.contains(query, case=False, na=False)
         )
 
-        st.divider()
+        filtered_df = filtered_df[mask]
 
-        st.subheader("Ready Examples")
-
-        for example_name in EXAMPLES:
-            if st.button(example_name, use_container_width=True):
-                apply_example(example_name)
-
-        st.divider()
-
-        st.caption("Later, the rule-based service will be replaced by a real generation model.")
+    return filtered_df
 
 
-def render_input_form():
-    """Render the user input form and return submitted values."""
-    st.subheader("📝 Input")
+def render_metrics(df: pd.DataFrame, selected_file: Path) -> None:
+    col1, col2, col3 = st.columns(3)
 
-    with st.form("swap_form"):
-        source_text = st.text_area(
-            "Original sentence",
-            key="source_text",
-            height=140,
-            placeholder="Write an Arabic dialect sentence here...",
-        )
+    with col1:
+        st.metric("Selected file", selected_file.name)
 
-        col1, col2 = st.columns([1, 1])
+    with col2:
+        st.metric("Predictions", len(df))
 
-        with col1:
-            target_sentiment = st.selectbox(
-                "Target sentiment",
-                options=[
-                    SentimentEnum.POSITIVE.value,
-                    SentimentEnum.NEUTRAL.value,
-                    SentimentEnum.NEGATIVE.value,
-                ],
-                format_func=lambda value: SENTIMENT_LABELS[value],
-                key="target_sentiment",
-            )
-
-        with col2:
-            dialect = st.text_input(
-                "Dialect, optional",
-                key="dialect",
-                placeholder="Example: Egyptian, Saudi, Jordanian...",
-            )
-
-        submitted = st.form_submit_button(
-            "Generate Swap",
-            type="primary",
-            use_container_width=True,
-        )
-
-    return submitted, source_text, target_sentiment, dialect
+    with col3:
+        st.metric("Target sentiments", df["target_sentiment"].nunique() if not df.empty else 0)
 
 
-def render_result(result) -> None:
-    """Render the swap result in a before/after layout."""
-    st.subheader("✨ Result")
+def render_results_table(df: pd.DataFrame) -> None:
+    table_df = df.rename(
+        columns={
+            "model_name": "Model",
+            "sample_id": "Sample ID",
+            "target_sentiment": "Target Sentiment",
+            "source_text": "Original Text",
+            "reference_text": "Reference Text",
+            "prediction_text": "Model Prediction",
+            "source_file": "Source File",
+        }
+    )
 
-    if result.success:
-        st.markdown(
-            '<div class="success-badge">✅ Swap completed successfully</div>',
-            unsafe_allow_html=True,
-        )
-    else:
-        st.markdown(
-            '<div class="warning-badge">⚠️ The sentence did not change. The current rules may not cover this case.</div>',
-            unsafe_allow_html=True,
-        )
+    st.dataframe(
+        table_df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Original Text": st.column_config.TextColumn(width="large"),
+            "Reference Text": st.column_config.TextColumn(width="large"),
+            "Model Prediction": st.column_config.TextColumn(width="large"),
+            "Source File": st.column_config.TextColumn(width="small"),
+        },
+    )
 
-    before_col, after_col = st.columns(2)
 
-    with before_col:
+def render_example_inspector(df: pd.DataFrame) -> None:
+    if df.empty:
+        return
+
+    st.subheader("Example Inspector")
+
+    sample_options = df["sample_id"].astype(str).unique().tolist()
+
+    selected_sample_id = st.selectbox(
+        "Select sample",
+        options=sample_options,
+    )
+
+    selected_row = df[df["sample_id"].astype(str) == selected_sample_id].iloc[0]
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
         st.markdown(
             f"""
-            <div class="result-card">
-                <div class="card-title">Original Sentence</div>
-                <div class="sentence-text">{result.source_text}</div>
+            <div class="comparison-card">
+                <div class="card-title">Original Text</div>
+                <div class="card-text">{selected_row["source_text"]}</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-    with after_col:
+    with col2:
         st.markdown(
             f"""
-            <div class="result-card">
-                <div class="card-title">Generated Sentence</div>
-                <div class="sentence-text">{result.generated_text}</div>
+            <div class="comparison-card">
+                <div class="card-title">Reference Text</div>
+                <div class="card-text">{selected_row["reference_text"]}</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-    st.divider()
+    with col3:
+        st.markdown(
+            f"""
+            <div class="comparison-card">
+                <div class="card-title">Model Prediction</div>
+                <div class="card-text">{selected_row["prediction_text"]}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-    meta_col1, meta_col2, meta_col3 = st.columns(3)
-
-    with meta_col1:
-        st.metric("Target Sentiment", result.target_sentiment.value)
-
-    with meta_col2:
-        st.metric("Dialect", result.dialect or "Not provided")
-
-    with meta_col3:
-        st.metric("Success", "Yes" if result.success else "No")
-
-    if result.error_message:
-        st.error(result.error_message)
+    st.caption(
+        f"Model: {selected_row['model_name']} | "
+        f"Target sentiment: {selected_row['target_sentiment']}"
+    )
 
 
 def main() -> None:
-    """Run the Streamlit application."""
     st.set_page_config(
-        page_title="Dialect Sentiment Swap",
-        page_icon="🔁",
+        page_title="Model Results Viewer",
+        page_icon="📊",
         layout="wide",
     )
 
     inject_custom_css()
-    initialize_state()
-    render_sidebar()
     render_header()
 
-    st.markdown(
-        """
-        <div class="info-box">
-            <b>Note:</b> This is not the final model version.
-            The current interface is used to test communication between project layers
-            before training a real generation model.
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    prediction_files = find_prediction_files()
 
-    submitted, source_text, target_sentiment, dialect = render_input_form()
+    if not prediction_files:
+        st.warning("No prediction files found under experiments/baselines.")
+        return
 
-    if submitted:
-        if not source_text.strip():
-            st.warning("Please enter a sentence first.")
-            return
+    selected_file = render_file_selector(prediction_files)
 
-        request = SwapRequestModel(
-            source_text=source_text.strip(),
-            target_sentiment=SentimentEnum(target_sentiment),
-            dialect=dialect.strip() if dialect.strip() else None,
-        )
+    records = load_records_from_path(selected_file)
+    df = build_dataframe(records)
 
-        controller = SwapController()
-        result = controller.swap(request)
+    filtered_df = apply_filters(df)
 
-        render_result(result)
+    render_metrics(filtered_df, selected_file)
+
+    st.divider()
+
+    st.subheader("Results Table")
+    render_results_table(filtered_df)
+
+    st.divider()
+
+    render_example_inspector(filtered_df)
 
 
 if __name__ == "__main__":

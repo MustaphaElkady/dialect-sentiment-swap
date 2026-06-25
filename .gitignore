@@ -8,7 +8,7 @@ data/processed/*
 models/*
 outputs/*
 experiments/*
-
+submissions/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 !models/.gitkeep
