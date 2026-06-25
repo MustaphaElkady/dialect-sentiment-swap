@@ -13,6 +13,7 @@ lora_target: all
 
 ### qlora
 quantization_bit: 4
+upcast_layernorm: true
 
 ### dataset
 dataset_dir: /content/dialect-sentiment-swap/data/llamafactory
