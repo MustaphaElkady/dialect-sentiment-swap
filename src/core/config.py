@@ -50,6 +50,14 @@ class Settings(BaseSettings):
     CAUSAL_TEMPERATURE: float
     CAUSAL_TOP_P: float
 
+    
+    LLAMAFACTORY_DATA_DIR: str = "data/llamafactory"
+    LLAMAFACTORY_TRAIN_FILE: str = "sentiment_swap_train.json"
+    LLAMAFACTORY_EVAL_FILE: str = "sentiment_swap_val.json"
+    LLAMAFACTORY_DATASET_INFO_FILE: str = "dataset_info.json"
+
+    FINETUNE_MODEL_NAME: str = "Qwen/Qwen2.5-7B-Instruct"
+    FINETUNE_OUTPUT_DIR: str = "/content/drive/MyDrive/dialect-sentiment-swap/models/qwen2_5_7b_sentiment_swap_qlora"
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return Settings()
