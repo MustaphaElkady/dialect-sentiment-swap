@@ -21,8 +21,8 @@ dataset: sentiment_swap_train
 eval_dataset: sentiment_swap_val
 template: qwen
 cutoff_len: 512
-overwrite_cache: true
-preprocessing_num_workers: 4
+overwrite_cache: false
+preprocessing_num_workers: 1
 
 ### output
 output_dir: /content/drive/MyDrive/dialect-sentiment-swap/models/qwen2_5_7b_sentiment_swap_qlora
