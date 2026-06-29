@@ -1,11 +1,11 @@
 from pathlib import Path
-
+import json
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from src.core import get_settings
 from src.helpers import project_path, save_jsonl
-from src.models import GenerationPredictionModel, TrainingExampleModel
+from src.models import GenerationPredictionModel, TrainingExampleModel,SwapResultModel
 
 
 class CausalGenerationService:
@@ -84,31 +84,42 @@ class CausalGenerationService:
         messages = [
             {
                 "role": "system",
-                "content": (
-                    "أنت مساعد متخصص في إعادة كتابة الجمل العربية واللهجات العربية. "
-                    "اكتب الإجابة النهائية فقط بدون شرح."
+                "content": "\n".join(
+                    [
+                        "أنت مساعد متخصص في إعادة كتابة الجمل العربية واللهجات العربية.",
+                        "مهمتك هي تغيير الشعور فقط مع الحفاظ على المعنى العام والموضوع واللهجة والأسلوب.",
+                        "لا تغيّر أسماء الأشخاص أو الأماكن أو المنتجات.",
+                        "لا تضف معلومات جديدة غير موجودة في الجملة الأصلية.",
+                        "لا تشرح.",
+                        "لا تكرر التعليمات.",
+                        "اكتب الجملة الناتجة فقط.",
+                    ]
                 ),
             },
             {
                 "role": "user",
-                "content": prompt,
+                "content":"\n".join([
+                    prompt,
+                    "",
+                    "### Pydantic details: ",
+                    json.dumps(
+                    SwapResultModel.moedl_json_schema(),ensure_ascii=False
+                    )
+                    ]) 
             },
         ]
 
-        if hasattr(self.tokenizer, "apply_chat_template"):
-            formatted_prompt = self.tokenizer.apply_chat_template(
-                messages,
-                tokenize=False,
-                add_generation_prompt=True,
-            )
-        else:
-            formatted_prompt = prompt
+        formatted_prompt = self.tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
 
         encoded_input = self.tokenizer(
             formatted_prompt,
             return_tensors="pt",
             truncation=True,
-            max_length=self.settings.MAX_SOURCE_LENGTH,
+            max_length=getattr(self.settings, "CAUSAL_MAX_INPUT_TOKENS", 1024),
         )
 
         encoded_input = {
@@ -122,9 +133,7 @@ class CausalGenerationService:
             generated_ids = self.model.generate(
                 **encoded_input,
                 max_new_tokens=self.settings.CAUSAL_MAX_NEW_TOKENS,
-                do_sample=True,
-                temperature=self.settings.CAUSAL_TEMPERATURE,
-                top_p=self.settings.CAUSAL_TOP_P,
+                do_sample=False,
                 pad_token_id=self.tokenizer.pad_token_id,
                 eos_token_id=self.tokenizer.eos_token_id,
             )
@@ -136,13 +145,13 @@ class CausalGenerationService:
             skip_special_tokens=True,
         )
 
-        return prediction_text.strip()
+        return self._clean_prediction(prediction_text)
 
     def _build_prompt(self, example: TrainingExampleModel) -> str:
         sentiment_labels = {
-            "positive": "إيجابي",
-            "negative": "سلبي",
-            "neutral": "محايد",
+            "positive": "إيجابي (positive)",
+            "negative": "سلبي (negative)",
+            "neutral": "محايد (neutral)",
         }
 
         source_sentiment = sentiment_labels.get(
@@ -159,22 +168,40 @@ class CausalGenerationService:
             [
                 "أعد كتابة الجملة العربية التالية مع تغيير الشعور فقط.",
                 "",
-                f"الشعور الحالي: {source_sentiment}.",
-                f"الشعور المطلوب: {target_sentiment}.",
+                f"### الشعور الحالي: {source_sentiment} ",
+                f"### الشعور المطلوب: {target_sentiment}",
                 "",
-                "القواعد:",
-                "- غيّر فقط الكلمات أو العبارات التي تحمل الشعور.",
-                "- حافظ على المعنى العام والوصف واللهجة قدر الإمكان.",
-                "- استخدم رموزًا تعبيرية مناسبة للشعور المطلوب إذا كان ذلك مناسبًا للسياق.",
-                "- لا تشرح.",
-                "- لا تكرر التعليمات.",
+                "### القواعد:",
+                "- حافظ على نفس المعنى العام.",
+                "- حافظ على نفس الموضوع والوصف.",
+                "- حافظ على اللهجة والأسلوب قدر الإمكان.",
+                "- غيّر فقط الكلمات أو العبارات المرتبطة بالشعور.",
+                "- لا تضف شرحًا أو ملاحظات.",
                 "- اكتب الجملة الناتجة فقط.",
                 "",
-                f"الجملة الأصلية: {example.source_text}",
+                f"### الجملة الأصلية: {example.source_text}",
                 "",
-                "الجملة الناتجة:",
+                "### الجملة الناتجة:",
             ]
         )
+
+    def _clean_prediction(self, text: str) -> str:
+        text = text.strip()
+
+        prefixes = [
+            "الجملة الناتجة:",
+            "الناتج:",
+            "الإجابة:",
+            "الإجابة النهائية:",
+            "Output:",
+            "Result:",
+        ]
+
+        for prefix in prefixes:
+            if text.startswith(prefix):
+                text = text[len(prefix):].strip()
+
+        return text
 
     def _causal_output_path(self) -> Path:
         return (
