@@ -125,13 +125,15 @@ class CausalGenerationService:
                 pad_token_id=self.tokenizer.pad_token_id,
                 eos_token_id=self.tokenizer.eos_token_id,
             )
+        generated_tokens = [
+            output_ids[input_length:]
+            for output_ids in generated_ids
+        ]
 
-        new_tokens = generated_ids[0][input_length:]
-
-        prediction_text = self.tokenizer.decode(
-            new_tokens,
+        prediction_text = self.tokenizer.batch_decode(
+            generated_tokens,
             skip_special_tokens=True,
-        )
+        )[0]
 
         return self._clean_prediction(prediction_text)
 
