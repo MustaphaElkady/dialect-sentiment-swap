@@ -1,4 +1,5 @@
 import json
+import random
 from pathlib import Path
 
 from src.core import get_settings
@@ -32,6 +33,8 @@ class LlamaFactoryDataExportService:
             for example in train_examples
         ]
 
+        random.Random(101).shuffle(train_records)
+
         eval_records = [
             self._build_sft_record(example)
             for example in eval_examples
@@ -53,32 +56,38 @@ class LlamaFactoryDataExportService:
         source_sentiment = self._sentiment_label(example.source_sentiment)
         target_sentiment = self._sentiment_label(example.target_sentiment)
 
-        system_message = (
-            "You are an Arabic sentiment rewriting assistant. "
-            "Rewrite Arabic and dialectal Arabic sentences while preserving "
-            "meaning, topic, dialect, and style. "
-            "Return only the rewritten sentence."
+        system_message = "\n".join(
+            [
+                "أنت مساعد متخصص في إعادة كتابة الجمل العربية واللهجات العربية.",
+                "مهمتك هي تغيير الشعور فقط مع الحفاظ على المعنى العام والموضوع والوصف واللهجة والأسلوب.",
+                "غيّر فقط الكلمات أو العبارات المرتبطة بالشعور.",
+                "لا تغيّر أسماء الأشخاص أو الأماكن أو المنتجات.",
+                "لا تضف معلومات جديدة غير موجودة في الجملة الأصلية.",
+                "لا تشرح.",
+                "لا تكرر التعليمات.",
+                "اكتب الجملة الناتجة فقط.",
+            ]
         )
 
         instruction = "\n".join(
             [
-                "Rewrite the following Arabic sentence by changing its sentiment.",
+                "أعد كتابة الجملة العربية التالية مع تغيير الشعور فقط.",
                 "",
-                f"Current sentiment: {source_sentiment}",
-                f"Target sentiment: {target_sentiment}",
+                f"### الشعور الحالي: {source_sentiment}",
+                f"### الشعور المطلوب: {target_sentiment}",
                 "",
-                "Rules:",
-                "- Preserve the main meaning, topic, dialect, and writing style.",
-                "- Change only sentiment-bearing words or phrases.",
-                "- Use suitable emojis only when natural and appropriate.",
-                "- Do not explain.",
-                "- Do not repeat the instruction.",
-                "- Output only the rewritten sentence.",
+                "### القواعد:",
+                "- حافظ على نفس المعنى العام.",
+                "- حافظ على نفس الموضوع والوصف.",
+                "- حافظ على اللهجة والأسلوب قدر الإمكان.",
+                "- غيّر فقط الكلمات أو العبارات المرتبطة بالشعور.",
+                "- استخدم رموزًا تعبيرية مناسبة إذا كانت موجودة أو مناسبة للسياق.",
+                "- لا تضف شرحًا أو ملاحظات.",
+                "- اكتب الجملة الناتجة فقط.",
                 "",
-                "Original sentence:",
-                example.source_text,
+                f"### الجملة الأصلية: {example.source_text}",
                 "",
-                "Rewritten sentence:",
+                "### الجملة الناتجة:",
             ]
         )
 
@@ -115,13 +124,15 @@ class LlamaFactoryDataExportService:
         }
 
     def _sentiment_label(self, sentiment: str) -> str:
+        sentiment_value = getattr(sentiment, "value", sentiment)
+
         labels = {
-            "positive": "positive",
-            "negative": "negative",
-            "neutral": "neutral",
+            "positive": "إيجابي (positive)",
+            "negative": "سلبي (negative)",
+            "neutral": "محايد (neutral)",
         }
 
-        return labels.get(sentiment, sentiment)
+        return labels.get(sentiment_value, sentiment_value)
 
     def _save_json_list(self, records: list[dict], file_path: Path) -> None:
         file_path.parent.mkdir(parents=True, exist_ok=True)
