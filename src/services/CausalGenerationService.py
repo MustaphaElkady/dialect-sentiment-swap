@@ -1,11 +1,10 @@
 from pathlib import Path
-import json
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from src.core import get_settings
 from src.helpers import project_path, save_jsonl
-from src.models import GenerationPredictionModel, TrainingExampleModel,SwapResultModel
+from src.models import GenerationPredictionModel, TrainingExampleModel
 
 
 class CausalGenerationService:
@@ -28,16 +27,15 @@ class CausalGenerationService:
         self.model = AutoModelForCausalLM.from_pretrained(
             self.settings.CAUSAL_MODEL_NAME,
             torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
+            # torch_dtype=None,
             device_map="auto" if self.device == "cuda" else None,
             trust_remote_code=True,
         )
 
         self.model.eval()
 
-    def generate_predictions(
-        self,
-        examples: list[TrainingExampleModel],
-    ) -> list[GenerationPredictionModel]:
+    def generate_predictions(self,examples: list[TrainingExampleModel],) -> list[GenerationPredictionModel]:
+
         selected_examples = examples[: self.settings.CAUSAL_MAX_EXAMPLES]
 
         predictions: list[GenerationPredictionModel] = []
@@ -65,12 +63,9 @@ class CausalGenerationService:
 
         return predictions
 
-    def save_predictions(
-        self,
-        predictions: list[GenerationPredictionModel],
-    ) -> Path:
-        output_path = self._causal_output_path()
+    def save_predictions(self, predictions: list[GenerationPredictionModel]) -> Path:
 
+        output_path = self._causal_output_path()
         prediction_records = [
             prediction.model_dump(mode="json")
             for prediction in predictions
@@ -98,14 +93,7 @@ class CausalGenerationService:
             },
             {
                 "role": "user",
-                "content":"\n".join([
-                    prompt,
-                    "",
-                    "### Pydantic details: ",
-                    json.dumps(
-                    SwapResultModel.moedl_json_schema(),ensure_ascii=False
-                    )
-                    ]) 
+                "content": prompt
             },
         ]
 
