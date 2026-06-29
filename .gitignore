@@ -4,12 +4,16 @@ __pycache__/
 .ipynb_checkpoints/
 
 data/raw/*
+data/llamafactory/*
+
 data/processed/*
 models/*
 predictions/*
 outputs/*
 experiments/*
 submissions/*
+
+!data/llamafactory/.gitkeep
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 !models/.gitkeep
